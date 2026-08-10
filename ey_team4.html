@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>The IPO Time Machine — 2021 NSE Cohort</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cambria&family=Archivo+Expanded:wght@600;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  :root{
+    --bg:#0A1628;
+    --card:#112544;
+    --card-hi:#16305A;
+    --border:#24406B;
+    --gold:#E3B23C;
+    --green:#3ED598;
+    --red:#FF6B6B;
+    --white:#FFFFFF;
+    --ice:#CBD9EA;
+    --muted:#7E93AC;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    background-image:
+      radial-gradient(circle at 92% -8%, #16305A 0%, transparent 32%),
+      radial-gradient(circle at -6% 96%, #16305A 0%, transparent 28%);
+    color:var(--white);
+    font-family:'Inter',sans-serif;
+    padding:36px 20px 60px;
+    min-height:100vh;
+  }
+  .wrap{max-width:980px;margin:0 auto;}
+
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    letter-spacing:0.18em;
+    color:var(--gold);
+    text-transform:uppercase;
+    margin-bottom:10px;
+    font-weight:700;
+  }
+  h1{
+    font-family:'Archivo Expanded',sans-serif;
+    font-weight:800;
+    font-size:clamp(26px,4.6vw,42px);
+    margin:0 0 8px;
+    letter-spacing:-0.01em;
+  }
+  .sub{color:var(--muted);font-size:14.5px;margin-bottom:26px;max-width:640px;line-height:1.55;}
+
+  .tabs{
+    display:flex;
+    gap:8px;
+    margin-bottom:22px;
+    border-bottom:1px solid var(--border);
+    padding-bottom:0;
+  }
+  .tab{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12.5px;
+    font-weight:700;
+    letter-spacing:0.05em;
+    color:var(--muted);
+    background:none;
+    border:none;
+    padding:10px 18px;
+    cursor:pointer;
+    border-bottom:2px solid transparent;
+    transition:color .15s, border-color .15s;
+  }
+  .tab:hover{color:var(--ice);}
+  .tab.active{color:var(--gold);border-bottom-color:var(--gold);}
+
+  .panel{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:26px;
+    margin-bottom:20px;
+  }
+  .view{display:none;}
+  .view.active{display:block;}
+
+  label{
+    display:block;
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin-bottom:8px;
+  }
+  select, input[type=number], input[type=text]{
+    width:100%;
+    background:var(--card-hi);
+    border:1px solid var(--border);
+    color:var(--white);
+    font-family:'Inter',sans-serif;
+    font-size:15px;
+    font-weight:500;
+    padding:12px 13px;
+    border-radius:8px;
+    outline:none;
+    transition:border-color .15s;
+  }
+  select:focus, input:focus{border-color:var(--gold);}
+
+  button.primary{
+    margin-top:20px;
+    width:100%;
+    background:var(--gold);
+    color:#1A1200;
+    border:none;
+    font-family:'Archivo Expanded',sans-serif;
+    font-weight:800;
+    font-size:14.5px;
+    letter-spacing:0.02em;
+    padding:14px;
+    border-radius:8px;
+    cursor:pointer;
+    transition:transform .1s, opacity .15s;
+  }
+  button.primary:hover{opacity:0.9;}
+  button.primary:active{transform:scale(0.98);}
+
+  .controls{display:grid;grid-template-columns:1.3fr 1fr;gap:18px;}
+  @media(max-width:640px){.controls{grid-template-columns:1fr;}}
+
+  .metric-toggle{
+    display:flex;gap:6px;background:var(--card-hi);border:1px solid var(--border);
+    border-radius:8px;padding:4px;margin-top:6px;
+  }
+  .metric-toggle button{
+    flex:1;background:none;border:none;color:var(--muted);
+    font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;
+    padding:8px 6px;border-radius:6px;cursor:pointer;letter-spacing:0.03em;
+  }
+  .metric-toggle button.active{background:var(--gold);color:#1A1200;}
+
+  .result{text-align:center;padding:34px 20px 26px;}
+  .result-label{
+    font-family:'JetBrains Mono',monospace;font-size:11.5px;letter-spacing:0.14em;
+    text-transform:uppercase;color:var(--muted);margin-bottom:12px;
+  }
+  .ticker{
+    font-family:'JetBrains Mono',monospace;font-weight:700;
+    font-size:clamp(38px,7.5vw,60px);letter-spacing:-0.01em;
+    display:inline-flex;gap:2px;
+  }
+  .ticker span.digit{display:inline-block;min-width:0.6em;transition:transform .4s cubic-bezier(.2,.9,.3,1), opacity .4s;}
+  .ticker.gain{color:var(--green);}
+  .ticker.loss{color:var(--red);}
+  .ticker.roll .digit{animation:roll .5s cubic-bezier(.2,.9,.3,1);}
+  @keyframes roll{0%{transform:translateY(-14px);opacity:0;}100%{transform:translateY(0);opacity:1;}}
+
+  .delta{margin-top:8px;font-weight:600;font-size:15px;}
+  .delta.gain{color:var(--green);}
+  .delta.loss{color:var(--red);}
+
+  .trend-wrap{margin-top:8px;}
+  .trend-caption{
+    font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--muted);
+    text-align:center;margin-top:6px;letter-spacing:0.05em;
+  }
+
+  .badges{display:flex;gap:10px;justify-content:center;margin-top:16px;flex-wrap:wrap;}
+  .badge{
+    font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ice);
+    background:var(--card-hi);border:1px solid var(--border);border-radius:20px;
+    padding:6px 14px;
+  }
+  .badge b{color:var(--gold);}
+
+  .lb-controls{display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap;align-items:center;}
+  .lb-controls input[type=text]{flex:1;min-width:180px;}
+  .lb-row{
+    display:flex;align-items:center;gap:14px;margin-bottom:10px;
+    padding:10px 12px;background:var(--card-hi);border-radius:8px;border:1px solid var(--border);
+  }
+  .lb-rank{
+    font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;color:var(--muted);
+    width:22px;text-align:center;flex-shrink:0;
+  }
+  .lb-name{width:150px;flex-shrink:0;font-size:13px;font-weight:600;}
+  .lb-name .sector{display:block;font-size:10px;color:var(--muted);font-weight:400;margin-top:1px;}
+  .lb-track{flex:1;background:#0A1628;border-radius:6px;height:26px;position:relative;overflow:hidden;}
+  .lb-fill{
+    height:100%;border-radius:6px;transition:width .8s cubic-bezier(.2,.9,.3,1);
+    display:flex;align-items:center;padding:0 10px;
+    font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;
+  }
+  .lb-fill.gain{background:var(--green);color:#06231A;justify-content:flex-end;}
+  .lb-fill.loss{background:var(--red);color:#2B0A0A;justify-content:flex-end;}
+
+  .compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media(max-width:640px){.compare-grid{grid-template-columns:1fr;}}
+  .compare-card{background:var(--card-hi);border:1px solid var(--border);border-radius:10px;padding:20px;}
+  .compare-card h3{margin:0 0 4px;font-family:'Cambria',serif;font-size:19px;}
+  .compare-card .sector{font-size:11px;color:var(--muted);margin-bottom:14px;}
+  .compare-stat{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
+  .compare-stat:last-child{border-bottom:none;}
+  .compare-stat .label{color:var(--muted);}
+  .compare-stat .val{font-weight:700;font-family:'JetBrains Mono',monospace;}
+  .compare-stat .val.gain{color:var(--green);}
+  .compare-stat .val.loss{color:var(--red);}
+
+  .footnote{
+    font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--muted);
+    margin-top:16px;line-height:1.6;padding-top:14px;border-top:1px solid var(--border);
+  }
+  .footnote b{color:var(--ice);}
+  .footnote .star{color:var(--gold);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="eyebrow">NSE · FY2021 IPO COHORT · HYPE VS. REALITY</div>
+  <h1>The IPO Time Machine</h1>
+  <p class="sub">Explore how ₹10,000 invested at listing in a 2021 IPO would look today — compare winners against losers, and see the full cohort ranked side by side.</p>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="machine">TIME MACHINE</button>
+    <button class="tab" data-tab="leaderboard">LEADERBOARD</button>
+    <button class="tab" data-tab="compare">COMPARE</button>
+  </div>
+
+  <div class="view active" id="view-machine">
+    <div class="panel">
+      <div class="controls">
+        <div>
+          <label for="stock">Choose an IPO</label>
+          <select id="stock"></select>
+        </div>
+        <div>
+          <label for="amount">Investment amount (₹)</label>
+          <input type="number" id="amount" value="10000" min="1000" step="1000">
+        </div>
+      </div>
+      <label style="margin-top:16px;">Measure against</label>
+      <div class="metric-toggle">
+        <button class="metric-btn active" data-metric="current">Current Price</button>
+        <button class="metric-btn" data-metric="listing">Listing-Day Close</button>
+      </div>
+      <button class="primary" id="run">Run the simulation</button>
+    </div>
+
+    <div class="panel result">
+      <div class="result-label" id="resultLabel">Current value of your investment</div>
+      <div class="ticker gain" id="ticker">₹ 0</div>
+      <div class="delta gain" id="delta">—</div>
+      <div class="badges" id="badges"></div>
+    </div>
+
+    <div class="panel">
+      <div class="eyebrow" style="margin-bottom:14px;">PRICE TRAJECTORY</div>
+      <div class="trend-wrap"><svg id="trendSvg" viewBox="0 0 760 180" style="width:100%;height:auto;"></svg></div>
+      <div class="trend-caption" id="trendCaption"></div>
+    </div>
+  </div>
+
+  <div class="view" id="view-leaderboard">
+    <div class="panel">
+      <div class="lb-controls">
+        <input type="text" id="lbSearch" placeholder="Search a company...">
+        <div class="metric-toggle" style="margin-top:0;width:auto;min-width:260px;">
+          <button class="lb-metric-btn active" data-metric="current">Return to Date</button>
+          <button class="lb-metric-btn" data-metric="listing">Listing-Day Return</button>
+        </div>
+      </div>
+      <div id="lbList"></div>
+    </div>
+  </div>
+
+  <div class="view" id="view-compare">
+    <div class="panel">
+      <div class="controls">
+        <div>
+          <label for="cmpA">Stock A</label>
+          <select id="cmpA"></select>
+        </div>
+        <div>
+          <label for="cmpB">Stock B</label>
+          <select id="cmpB"></select>
+        </div>
+      </div>
+    </div>
+    <div class="compare-grid" id="compareGrid"></div>
+  </div>
+
+  <div class="panel footnote">
+    <span class="star">★</span> <b>For your team:</b> figures below are compiled from press coverage (Business Standard, Upstox, Tickertape, Angel One) at the time this deck was built — current prices drift daily. Swap in your data pod's verified numbers before presenting. Edit the <code>stocks</code> array near the top of the script block.
+  </div>
+
+</div>
+
+<script>
+const stocks = [
+  { name: "Zomato",             sector: "New-age Tech",       issue: 76,   listing: 115,   current: 260  },
+  { name: "Paytm",              sector: "Fintech",             issue: 2150, listing: 1564,  current: 650  },
+  { name: "Nykaa",               sector: "New-age Tech",       issue: 1125, listing: 2018,  current: 165  },
+  { name: "PB Fintech",          sector: "Fintech",             issue: 980,  listing: 1202,  current: 1550 },
+  { name: "CarTrade Tech",       sector: "New-age Tech",       issue: 1618, listing: 1599,  current: 480  },
+  { name: "Latent View Analytics", sector: "Analytics/IT",     issue: 197,  listing: 488,   current: 488  },
+  { name: "Tatva Chintan Pharma", sector: "Specialty Chemicals", issue: 1083, listing: 2310, current: 968 },
+  { name: "Paras Defence",       sector: "Defence",            issue: 175,  listing: 475,   current: 640  },
+  { name: "Nazara Technologies", sector: "Gaming",             issue: 1101, listing: 1990,  current: 700  },
+  { name: "MTAR Technologies",   sector: "Manufacturing",      issue: 575,  listing: 1245,  current: 2210 },
+  { name: "Sona Comstar",        sector: "Auto Components",    issue: 302,  listing: 315,   current: 640  },
+  { name: "Easy Trip Planners",  sector: "Travel/Tech",        issue: 187,  listing: 218,   current: 45   },
+];
+
+function fmtINR(num){ return '₹ ' + Math.round(num).toLocaleString('en-IN'); }
+function pctReturn(from, to){ return ((to - from) / from) * 100; }
+
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('view-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+const stockSelect = document.getElementById('stock');
+stocks.forEach((s, i) => {
+  const opt = document.createElement('option');
+  opt.value = i; opt.textContent = s.name;
+  stockSelect.appendChild(opt);
+});
+
+let machineMetric = 'current';
+document.querySelectorAll('.metric-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.metric-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    machineMetric = btn.dataset.metric;
+    document.getElementById('resultLabel').textContent =
+      machineMetric === 'current' ? 'Current value of your investment' : 'Value at listing-day close';
+    runSimulation();
+  });
+});
+
+const tickerEl = document.getElementById('ticker');
+const deltaEl = document.getElementById('delta');
+const badgesEl = document.getElementById('badges');
+
+function renderTicker(value, isGain){
+  tickerEl.classList.remove('roll');
+  void tickerEl.offsetWidth;
+  const str = fmtINR(value);
+  tickerEl.innerHTML = str.split('').map(ch => `<span class="digit">${ch===' '?'&nbsp;':ch}</span>`).join('');
+  tickerEl.className = 'ticker roll ' + (isGain ? 'gain' : 'loss');
+}
+
+function drawTrend(s){
+  const svg = document.getElementById('trendSvg');
+  const pts = [
+    { label: 'Issue', value: s.issue },
+    { label: 'Listing', value: s.listing },
+    { label: 'Current', value: s.current },
+  ];
+  const max = Math.max(...pts.map(p => p.value)) * 1.15;
+  const min = 0;
+  const W = 760, H = 180, padL = 60, padR = 30, padT = 20, padB = 30;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const xs = pts.map((_, i) => padL + (i / (pts.length - 1)) * plotW);
+  const ys = pts.map(p => padT + plotH - ((p.value - min) / (max - min)) * plotH);
+
+  let path = `M ${xs[0]} ${ys[0]}`;
+  for (let i = 1; i < pts.length; i++) path += ` L ${xs[i]} ${ys[i]}`;
+
+  const lineColor = s.current >= s.issue ? '#3ED598' : '#FF6B6B';
+  let svgContent = '';
+  for (let i = 0; i <= 3; i++) {
+    const y = padT + (plotH / 3) * i;
+    svgContent += `<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="#24406B" stroke-width="1" stroke-dasharray="3,3"/>`;
+  }
+  svgContent += `<path d="${path}" fill="none" stroke="${lineColor}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
+  pts.forEach((p, i) => {
+    svgContent += `<circle cx="${xs[i]}" cy="${ys[i]}" r="5" fill="${lineColor}" stroke="#0A1628" stroke-width="2"/>`;
+    svgContent += `<text x="${xs[i]}" y="${ys[i]-14}" text-anchor="middle" fill="#FFFFFF" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700">₹${p.value.toLocaleString('en-IN')}</text>`;
+    svgContent += `<text x="${xs[i]}" y="${H-8}" text-anchor="middle" fill="#7E93AC" font-family="Inter, sans-serif" font-size="11">${p.label}</text>`;
+  });
+  svg.innerHTML = svgContent;
+
+  document.getElementById('trendCaption').textContent =
+    `Issue → Listing → Current price for ${s.name}. Replace with your verified checkpoints (e.g. 3-month, 1-year) for more granularity.`;
+}
+
+function runSimulation(){
+  const s = stocks[stockSelect.value];
+  const amount = parseFloat(document.getElementById('amount').value) || 0;
+  const targetPrice = machineMetric === 'current' ? s.current : s.listing;
+  const finalValue = (amount / s.issue) * targetPrice;
+  const pctChange = pctReturn(s.issue, targetPrice);
+  const isGain = finalValue >= amount;
+
+  renderTicker(finalValue, isGain);
+  deltaEl.textContent = `${isGain?'+':''}${pctChange.toFixed(1)}% vs issue price · ${s.name}`;
+  deltaEl.className = 'delta ' + (isGain ? 'gain' : 'loss');
+
+  const listingPct = pctReturn(s.issue, s.listing);
+  const currentPct = pctReturn(s.issue, s.current);
+  badgesEl.innerHTML = `
+    <span class="badge">Sector: <b>${s.sector}</b></span>
+    <span class="badge">Listing day: <b style="color:${listingPct>=0?'#3ED598':'#FF6B6B'}">${listingPct>=0?'+':''}${listingPct.toFixed(1)}%</b></span>
+    <span class="badge">To date: <b style="color:${currentPct>=0?'#3ED598':'#FF6B6B'}">${currentPct>=0?'+':''}${currentPct.toFixed(1)}%</b></span>
+  `;
+  drawTrend(s);
+}
+
+document.getElementById('run').addEventListener('click', runSimulation);
+stockSelect.addEventListener('change', runSimulation);
+document.getElementById('amount').addEventListener('change', runSimulation);
+
+let lbMetric = 'current';
+document.querySelectorAll('.lb-metric-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.lb-metric-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    lbMetric = btn.dataset.metric;
+    renderLeaderboard();
+  });
+});
+document.getElementById('lbSearch').addEventListener('input', renderLeaderboard);
+
+function renderLeaderboard(){
+  const query = document.getElementById('lbSearch').value.toLowerCase();
+  const target = lbMetric === 'current' ? 'current' : 'listing';
+  const rows = stocks
+    .map(s => ({ ...s, pct: pctReturn(s.issue, s[target]) }))
+    .filter(s => s.name.toLowerCase().includes(query))
+    .sort((a, b) => b.pct - a.pct);
+
+  const maxAbs = Math.max(...rows.map(r => Math.abs(r.pct)), 1);
+  const list = document.getElementById('lbList');
+  list.innerHTML = '';
+  rows.forEach((r, i) => {
+    const isGain = r.pct >= 0;
+    const widthPct = Math.max(8, (Math.abs(r.pct) / maxAbs) * 100);
+    const row = document.createElement('div');
+    row.className = 'lb-row';
+    row.innerHTML = `
+      <div class="lb-rank">${i+1}</div>
+      <div class="lb-name">${r.name}<span class="sector">${r.sector}</span></div>
+      <div class="lb-track">
+        <div class="lb-fill ${isGain?'gain':'loss'}" style="width:${widthPct}%">
+          ${isGain?'+':''}${r.pct.toFixed(1)}%
+        </div>
+      </div>
+    `;
+    list.appendChild(row);
+  });
+}
+
+const cmpA = document.getElementById('cmpA');
+const cmpB = document.getElementById('cmpB');
+stocks.forEach((s, i) => {
+  [cmpA, cmpB].forEach(sel => {
+    const opt = document.createElement('option');
+    opt.value = i; opt.textContent = s.name;
+    sel.appendChild(opt);
+  });
+});
+cmpA.value = 0; cmpB.value = 1;
+
+function statRow(label, val, cls){
+  return `<div class="compare-stat"><span class="label">${label}</span><span class="val ${cls||''}">${val}</span></div>`;
+}
+
+function renderCompare(){
+  const a = stocks[cmpA.value], b = stocks[cmpB.value];
+  const grid = document.getElementById('compareGrid');
+  grid.innerHTML = '';
+  [a, b].forEach(s => {
+    const listingPct = pctReturn(s.issue, s.listing);
+    const currentPct = pctReturn(s.issue, s.current);
+    const card = document.createElement('div');
+    card.className = 'compare-card';
+    card.innerHTML = `
+      <h3>${s.name}</h3>
+      <div class="sector">${s.sector}</div>
+      ${statRow('Issue Price', '₹' + s.issue.toLocaleString('en-IN'))}
+      ${statRow('Listing Close', '₹' + s.listing.toLocaleString('en-IN'))}
+      ${statRow('Current Price', '₹' + s.current.toLocaleString('en-IN'))}
+      ${statRow('Listing-Day Return', (listingPct>=0?'+':'')+listingPct.toFixed(1)+'%', listingPct>=0?'gain':'loss')}
+      ${statRow('Return to Date', (currentPct>=0?'+':'')+currentPct.toFixed(1)+'%', currentPct>=0?'gain':'loss')}
+      ${statRow('₹10,000 today would be', '₹' + Math.round((10000/s.issue)*s.current).toLocaleString('en-IN'))}
+    `;
+    grid.appendChild(card);
+  });
+}
+cmpA.addEventListener('change', renderCompare);
+cmpB.addEventListener('change', renderCompare);
+
+renderLeaderboard();
+renderCompare();
+runSimulation();
+</script>
+</body>
+</html>
