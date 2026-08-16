@@ -302,6 +302,7 @@
         <button id="votePos" class="vote-btn positive">📈 Positive</button>
         <button id="voteNeg" class="vote-btn negative">📉 Negative</button>
       </div>
+      <div id="voteError" style="color:var(--red);font-family:JetBrains Mono,monospace;font-size:13px;display:none;margin-top:6px;"></div>
       <div class="vote-bar" id="voteBar" style="max-width:760px;">
         <div class="vote-fill pos" id="voteFillPos" style="width:50%">50% · <span id="cntPos">0</span></div>
         <div class="vote-fill neg" id="voteFillNeg" style="width:50%">50% · <span id="cntNeg">0</span></div>
@@ -614,8 +615,8 @@ cmpB.addEventListener('change', renderCompare);
 // --- Live Vote client logic ---
 // voterId persisted in localStorage to rate-limit single votes per session
 function makeId(len=10){return Math.random().toString(36).slice(2,2+len);} 
-if(!localStorage.voterId) localStorage.voterId = makeId(12);
-const voterId = localStorage.voterId;
+let voterId = localStorage.getItem('voterId');
+if(!voterId){ voterId = makeId(12); localStorage.setItem('voterId', voterId); }
 
 function slugify(name){return name.toString().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');}
 function currentSessionId(){ return slugify(stocks[stockSelect.value].name); }
@@ -635,7 +636,8 @@ let votePollId = null;
 
 async function fetchTally(session){
   try{
-    const res = await fetch(`/api/vote?session=${encodeURIComponent(session)}${'&voter='+encodeURIComponent(voterId)}`);
+    // GET does not accept voterId server-side (server returns only counts), so just query session
+    const res = await fetch(`/api/vote?session=${encodeURIComponent(session)}`);
     if(!res.ok) throw new Error('fetch error');
     return await res.json();
   }catch(e){return null;}
@@ -643,9 +645,15 @@ async function fetchTally(session){
 
 async function postVote(session, choice){
   try{
-    const res = await fetch(`/api/vote?session=${encodeURIComponent(session)}&choice=${choice}`,{method:'POST',headers:{'x-voter-id':voterId}});
+    // API expects voterId as a query param named `voterId` (see server)
+    const url = `/api/vote?session=${encodeURIComponent(session)}&choice=${choice}&voterId=${encodeURIComponent(voterId)}`;
+    const res = await fetch(url,{method:'POST'});
+    if(!res.ok){
+      const body = await res.json().catch(()=>({error:'unknown'}));
+      return { error: body.error || 'vote failed', status: res.status, body };
+    }
     return await res.json();
-  }catch(e){return null;}
+  }catch(e){return { error: String(e) };}
 }
 
 async function resetRound(session){
@@ -654,12 +662,48 @@ async function resetRound(session){
 
 async function updateVoteUI(session){
   const data = await fetchTally(session);
+  const errEl = document.getElementById('voteError'); if(errEl) errEl.style.display='none';
   if(!data) return;
-  const pos = data.positive||0, neg = data.negative||0; const total = Math.max(1,pos+neg);
-  const posPct = Math.round((pos/total)*100); const negPct = 100 - posPct;
+  const pos = Number(data.positive || 0), neg = Number(data.negative || 0);
+  const total = pos + neg;
+  voteSessionLabel.textContent = session;
+
+  // Zero-vote state: show neutral muted message
+  if (total === 0) {
+    voteFillPos.style.width = '100%'; voteFillPos.style.background = getComputedStyle(document.documentElement).getPropertyValue('--muted'); voteFillPos.style.color = 'var(--card)';
+    voteFillPos.innerHTML = 'No votes yet — be the first!';
+    voteFillNeg.style.width = '0%'; voteFillNeg.innerHTML = '';
+    cntPos.textContent = 0; cntNeg.textContent = 0;
+    voteStatus.textContent = 'Not voted';
+    votePosBtn.disabled = false; voteNegBtn.disabled = false;
+    return;
+  }
+
+  // normal state: compute percentages and colors
+  const posPct = Math.round((pos / total) * 100);
+  const negPct = 100 - posPct;
+  // restore styles
+  voteFillPos.style.background = ''; voteFillPos.style.color = '';
+  voteFillNeg.style.background = ''; voteFillNeg.style.color = '';
   voteFillPos.style.width = posPct + '%'; voteFillNeg.style.width = negPct + '%';
-  cntPos.textContent = pos; cntNeg.textContent = neg; voteSessionLabel.textContent = session;
-  if(data.voted) { voteStatus.textContent = 'You voted ✓'; votePosBtn.disabled = true; voteNegBtn.disabled = true; } else { voteStatus.textContent = 'Not voted'; votePosBtn.disabled = false; voteNegBtn.disabled = false; }
+  voteFillPos.innerHTML = `${posPct}% · <span id="cntPos">${pos}</span>`;
+  voteFillNeg.innerHTML = `${negPct}% · <span id="cntNeg">${neg}</span>`;
+
+  // color logic: positive majority = green, negative majority = red, exact tie -> gold (neutral)
+  if (pos > neg) { voteFillPos.classList.add('pos'); voteFillPos.classList.remove('neg'); voteFillPos.style.background = getComputedStyle(document.documentElement).getPropertyValue('--green'); voteFillPos.style.color = '#06231A'; voteFillNeg.style.background = 'transparent'; }
+  else if (neg > pos) { voteFillNeg.classList.add('neg'); voteFillNeg.classList.remove('pos'); voteFillNeg.style.background = getComputedStyle(document.documentElement).getPropertyValue('--red'); voteFillNeg.style.color = '#2B0A0A'; voteFillPos.style.background = 'transparent'; }
+  else { // tie
+    voteFillPos.style.background = getComputedStyle(document.documentElement).getPropertyValue('--gold'); voteFillPos.style.color = '#1A1200'; voteFillNeg.style.background = 'transparent';
+  }
+
+  // client-side voted tracking: mark as voted if localStorage has voted:<session>
+  const votedKey = `voted:${session}`;
+  const voted = !!localStorage.getItem(votedKey);
+  if (voted) {
+    voteStatus.textContent = 'You voted ✓'; votePosBtn.disabled = true; voteNegBtn.disabled = true;
+  } else {
+    voteStatus.textContent = 'Not voted'; votePosBtn.disabled = false; voteNegBtn.disabled = false;
+  }
 }
 
 function startVotePoll(){
@@ -669,9 +713,29 @@ function startVotePoll(){
 }
 function stopVotePoll(){ if(votePollId) clearInterval(votePollId); votePollId=null; }
 
-votePosBtn.addEventListener('click', async ()=>{ const s=currentSessionId(); const r=await postVote(s,'positive'); if(r && !r.error) updateVoteUI(s); });
-voteNegBtn.addEventListener('click', async ()=>{ const s=currentSessionId(); const r=await postVote(s,'negative'); if(r && !r.error) updateVoteUI(s); });
-resetRoundBtn.addEventListener('click', async ()=>{ const s=currentSessionId(); const r=await resetRound(s); if(r) updateVoteUI(s); });
+votePosBtn.addEventListener('click', async ()=>{
+  const s=currentSessionId(); const errEl = document.getElementById('voteError'); if(errEl) errEl.style.display='none';
+  const r = await postVote(s,'positive');
+  if (r && !r.error) {
+    localStorage.setItem(`voted:${s}`, '1');
+    updateVoteUI(s);
+  } else {
+    if(errEl){ errEl.textContent = r && r.error ? `Vote failed: ${r.error}` : 'Vote failed, try again'; errEl.style.display = 'block'; }
+  }
+});
+
+voteNegBtn.addEventListener('click', async ()=>{
+  const s=currentSessionId(); const errEl = document.getElementById('voteError'); if(errEl) errEl.style.display='none';
+  const r = await postVote(s,'negative');
+  if (r && !r.error) {
+    localStorage.setItem(`voted:${s}`, '1');
+    updateVoteUI(s);
+  } else {
+    if(errEl){ errEl.textContent = r && r.error ? `Vote failed: ${r.error}` : 'Vote failed, try again'; errEl.style.display = 'block'; }
+  }
+});
+
+resetRoundBtn.addEventListener('click', async ()=>{ const s=currentSessionId(); const r=await resetRound(s); if(r){ localStorage.removeItem(`voted:${s}`); updateVoteUI(s); } });
 
 function updateVoteSession(){ const s=currentSessionId(); voteSessionLabel.textContent=s; }
 
