@@ -1,0 +1,9 @@
+{
+  "name": "ipo-time-machine",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {},
+  "dependencies": {
+    "@vercel/kv": "^1.0.0"
+  }
+}

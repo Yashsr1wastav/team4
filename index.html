@@ -212,6 +212,29 @@
   }
   .footnote b{color:var(--ice);}
   .footnote .star{color:var(--gold);}
+  /* Presenter masking / reveal */
+  .masked .ticker, .masked .delta{filter:blur(14px);color:var(--muted);transition:filter .4s ease, color .4s ease;}
+  .masked #trendSvg text.val-label{fill:transparent;opacity:0;transition:opacity .3s ease;}
+  .revealed .ticker, .revealed .delta{filter:none;color:inherit;}
+
+  /* Confetti */
+  .confetti{position:fixed;left:0;right:0;top:10%;pointer-events:none;display:flex;justify-content:center;z-index:40}
+  .confetti .piece{width:10px;height:16px;border-radius:2px;opacity:0;transform:translateY(-20px) rotate(10deg);animation:fall 1200ms linear forwards;}
+  @keyframes fall{to{opacity:1;transform:translateY(220px) rotate(360deg);opacity:0}} 
+  /* subtle red impact flash */
+  .impact{position:fixed;left:0;right:0;top:0;bottom:0;background:radial-gradient(circle at 50% 30%, rgba(255,107,107,0.12), rgba(255,107,107,0.06) 25%, transparent 50%);pointer-events:none;opacity:0;transition:opacity .25s ease;z-index:39}
+
+  /* Live Vote styles */
+  .vote-panel{display:flex;flex-direction:column;gap:12px;align-items:center}
+  .vote-row{display:flex;gap:12px;width:100%;max-width:640px}
+  .vote-btn{flex:1;padding:14px;border-radius:10px;border:none;font-family:'Archivo Expanded',sans-serif;font-weight:800;cursor:pointer}
+  .vote-btn.positive{background:var(--green);color:#042016}
+  .vote-btn.negative{background:var(--red);color:#2B0A0A}
+  .vote-bar{width:100%;background:var(--card-hi);border:1px solid var(--border);height:40px;border-radius:8px;overflow:hidden;display:flex}
+  .vote-fill{height:100%;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-weight:800;color:#06231A;transition:width .8s cubic-bezier(.2,.9,.3,1)}
+  .vote-fill.neg{background:var(--red);color:#2B0A0A}
+  .vote-fill.pos{background:var(--green);color:#06231A}
+  .vote-meta{font-family:'JetBrains Mono',monospace;color:var(--muted);font-size:13px;margin-top:8px}
 </style>
 </head>
 <body>
@@ -225,10 +248,17 @@
     <button class="tab active" data-tab="machine">TIME MACHINE</button>
     <button class="tab" data-tab="leaderboard">LEADERBOARD</button>
     <button class="tab" data-tab="compare">COMPARE</button>
+    <button class="tab" data-tab="livevote">LIVE VOTE</button>
   </div>
 
   <div class="view active" id="view-machine">
     <div class="panel">
+      <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="font-size:13px;color:var(--muted);font-family:JetBrains Mono, monospace;">Presenter tools</div>
+        <label style="display:flex;align-items:center;gap:10px;">
+          <input type="checkbox" id="presenterToggle"> <span style="color:var(--muted);font-family:JetBrains Mono,monospace;font-size:12px;">Presenter Mode: Guess First</span>
+        </label>
+      </div>
       <div class="controls">
         <div>
           <label for="stock">Choose an IPO</label>
@@ -244,7 +274,11 @@
         <button class="metric-btn active" data-metric="current">Current Price</button>
         <button class="metric-btn" data-metric="listing">Listing-Day Close</button>
       </div>
-      <button class="primary" id="run">Run the simulation</button>
+      <div style="display:flex;gap:12px;margin-top:12px;">
+        <button class="primary" id="run" style="flex:1">Run the simulation</button>
+        <button class="primary" id="reveal" style="flex:1;display:none;background:var(--gold);">Reveal</button>
+        <button class="primary" id="newRound" style="flex:1;display:none;background:transparent;color:var(--ice);border:1px solid var(--border);">New Round</button>
+      </div>
     </div>
 
     <div class="panel result">
@@ -258,6 +292,24 @@
       <div class="eyebrow" style="margin-bottom:14px;">PRICE TRAJECTORY</div>
       <div class="trend-wrap"><svg id="trendSvg" viewBox="0 0 760 180" style="width:100%;height:auto;"></svg></div>
       <div class="trend-caption" id="trendCaption"></div>
+    </div>
+  </div>
+
+  <div class="view" id="view-livevote">
+    <div class="panel vote-panel">
+      <input type="text" id="voteQuestion" value="Do you think this IPO's return was positive?" style="width:100%;max-width:640px;background:var(--card-hi);border:1px solid var(--border);padding:10px;border-radius:8px;color:var(--white);">
+      <div class="vote-row">
+        <button id="votePos" class="vote-btn positive">📈 Positive</button>
+        <button id="voteNeg" class="vote-btn negative">📉 Negative</button>
+      </div>
+      <div class="vote-bar" id="voteBar" style="max-width:760px;">
+        <div class="vote-fill pos" id="voteFillPos" style="width:50%">50% · <span id="cntPos">0</span></div>
+        <div class="vote-fill neg" id="voteFillNeg" style="width:50%">50% · <span id="cntNeg">0</span></div>
+      </div>
+      <div class="vote-meta" id="voteMeta">Session: <span id="voteSession">-</span> · <span id="voteStatus">Not voted</span></div>
+      <div style="width:100%;max-width:640px;display:flex;justify-content:flex-end;">
+        <button id="resetRound" class="primary" style="display:none;width:auto;padding:8px 12px;background:transparent;color:var(--ice);border:1px solid var(--border);">Reset Round</button>
+      </div>
     </div>
   </div>
 
@@ -381,7 +433,7 @@ function drawTrend(s){
   svgContent += `<path d="${path}" fill="none" stroke="${lineColor}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
   pts.forEach((p, i) => {
     svgContent += `<circle cx="${xs[i]}" cy="${ys[i]}" r="5" fill="${lineColor}" stroke="#0A1628" stroke-width="2"/>`;
-    svgContent += `<text x="${xs[i]}" y="${ys[i]-14}" text-anchor="middle" fill="#FFFFFF" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700">₹${p.value.toLocaleString('en-IN')}</text>`;
+    svgContent += `<text class="val-label" x="${xs[i]}" y="${ys[i]-14}" text-anchor="middle" fill="#FFFFFF" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700">₹${p.value.toLocaleString('en-IN')}</text>`;
     svgContent += `<text x="${xs[i]}" y="${H-8}" text-anchor="middle" fill="#7E93AC" font-family="Inter, sans-serif" font-size="11">${p.label}</text>`;
   });
   svg.innerHTML = svgContent;
@@ -412,9 +464,72 @@ function runSimulation(){
   drawTrend(s);
 }
 
-document.getElementById('run').addEventListener('click', runSimulation);
-stockSelect.addEventListener('change', runSimulation);
+const presenterToggle = document.getElementById('presenterToggle');
+const runBtn = document.getElementById('run');
+const revealBtn = document.getElementById('reveal');
+const newRoundBtn = document.getElementById('newRound');
+
+runBtn.addEventListener('click', () => {
+  if (presenterToggle.checked) startGuessRound(); else runSimulation();
+});
+revealBtn.addEventListener('click', revealRound);
+newRoundBtn.addEventListener('click', () => {
+  // pick a random stock and re-mask
+  stockSelect.value = Math.floor(Math.random() * stocks.length);
+  startGuessRound();
+});
+
+stockSelect.addEventListener('change', () => { runSimulation(); updateVoteSession(); });
 document.getElementById('amount').addEventListener('change', runSimulation);
+
+// confetti and impact DOM nodes
+const confettiContainer = document.createElement('div'); confettiContainer.id='confetti'; confettiContainer.className='confetti'; document.body.appendChild(confettiContainer);
+const impactEl = document.createElement('div'); impactEl.id='impact'; impactEl.className='impact'; document.body.appendChild(impactEl);
+
+function startGuessRound(){
+  const s = stocks[stockSelect.value];
+  // show clues but mask final numbers
+  badgesEl.innerHTML = `<span class="badge">Sector: <b>${s.sector}</b></span><span class="badge">Issue Price: <b>₹${s.issue.toLocaleString('en-IN')}</b></span>`;
+  document.querySelector('.result').classList.add('masked');
+  revealBtn.style.display='inline-block'; newRoundBtn.style.display='inline-block'; runBtn.style.display='none';
+  // draw trend but leave labels masked
+  drawTrend(s);
+}
+
+function revealRound(){
+  // remove mask smoothly then run ticker animation
+  const panel = document.querySelector('.result');
+  panel.classList.remove('masked'); panel.classList.add('revealed');
+  // small delay to allow unblur transition, then run existing ticker animation
+  setTimeout(() => {
+    runSimulation();
+    // show confetti if gain, else impact if big loss
+    const s = stocks[stockSelect.value];
+    const amount = parseFloat(document.getElementById('amount').value) || 0;
+    const targetPrice = machineMetric === 'current' ? s.current : s.listing;
+    const finalValue = (amount / s.issue) * targetPrice;
+    const pctChange = pctReturn(s.issue, targetPrice);
+    if (finalValue > amount) {
+      spawnConfetti();
+    } else if (pctChange < -30) {
+      showImpact();
+    }
+  }, 420);
+}
+
+function spawnConfetti(){
+  confettiContainer.innerHTML = '';
+  const colors = [getComputedStyle(document.documentElement).getPropertyValue('--gold').trim(), getComputedStyle(document.documentElement).getPropertyValue('--green').trim(), getComputedStyle(document.documentElement).getPropertyValue('--red').trim(), '#FFFFFF'];
+  for (let i=0;i<14;i++){
+    const d = document.createElement('div'); d.className='piece'; d.style.background = colors[i%colors.length]; d.style.left = (50 + (Math.random()*160-80))+'%'; d.style.animationDelay = (Math.random()*200)+'ms'; d.style.transform = `translateX(${(Math.random()*160-80)}px)`;
+    confettiContainer.appendChild(d);
+  }
+  setTimeout(()=>confettiContainer.innerHTML='',1400);
+}
+
+function showImpact(){
+  impactEl.style.opacity = '1'; setTimeout(()=>impactEl.style.opacity='0',420);
+}
 
 let lbMetric = 'current';
 document.querySelectorAll('.lb-metric-btn').forEach(btn => {
@@ -495,6 +610,89 @@ function renderCompare(){
 }
 cmpA.addEventListener('change', renderCompare);
 cmpB.addEventListener('change', renderCompare);
+
+// --- Live Vote client logic ---
+// voterId persisted in localStorage to rate-limit single votes per session
+function makeId(len=10){return Math.random().toString(36).slice(2,2+len);} 
+if(!localStorage.voterId) localStorage.voterId = makeId(12);
+const voterId = localStorage.voterId;
+
+function slugify(name){return name.toString().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');}
+function currentSessionId(){ return slugify(stocks[stockSelect.value].name); }
+
+const votePosBtn = document.getElementById('votePos');
+const voteNegBtn = document.getElementById('voteNeg');
+const voteFillPos = document.getElementById('voteFillPos');
+const voteFillNeg = document.getElementById('voteFillNeg');
+const cntPos = document.getElementById('cntPos');
+const cntNeg = document.getElementById('cntNeg');
+const voteSessionLabel = document.getElementById('voteSession');
+const voteStatus = document.getElementById('voteStatus');
+const resetRoundBtn = document.getElementById('resetRound');
+const voteQuestion = document.getElementById('voteQuestion');
+
+let votePollId = null;
+
+async function fetchTally(session){
+  try{
+    const res = await fetch(`/api/vote?session=${encodeURIComponent(session)}${'&voter='+encodeURIComponent(voterId)}`);
+    if(!res.ok) throw new Error('fetch error');
+    return await res.json();
+  }catch(e){return null;}
+}
+
+async function postVote(session, choice){
+  try{
+    const res = await fetch(`/api/vote?session=${encodeURIComponent(session)}&choice=${choice}`,{method:'POST',headers:{'x-voter-id':voterId}});
+    return await res.json();
+  }catch(e){return null;}
+}
+
+async function resetRound(session){
+  try{const res = await fetch(`/api/vote?session=${encodeURIComponent(session)}`,{method:'DELETE'}); return await res.json();}catch(e){return null;}
+}
+
+async function updateVoteUI(session){
+  const data = await fetchTally(session);
+  if(!data) return;
+  const pos = data.positive||0, neg = data.negative||0; const total = Math.max(1,pos+neg);
+  const posPct = Math.round((pos/total)*100); const negPct = 100 - posPct;
+  voteFillPos.style.width = posPct + '%'; voteFillNeg.style.width = negPct + '%';
+  cntPos.textContent = pos; cntNeg.textContent = neg; voteSessionLabel.textContent = session;
+  if(data.voted) { voteStatus.textContent = 'You voted ✓'; votePosBtn.disabled = true; voteNegBtn.disabled = true; } else { voteStatus.textContent = 'Not voted'; votePosBtn.disabled = false; voteNegBtn.disabled = false; }
+}
+
+function startVotePoll(){
+  stopVotePoll();
+  const session = currentSessionId(); updateVoteUI(session);
+  votePollId = setInterval(()=>updateVoteUI(currentSessionId()),2000);
+}
+function stopVotePoll(){ if(votePollId) clearInterval(votePollId); votePollId=null; }
+
+votePosBtn.addEventListener('click', async ()=>{ const s=currentSessionId(); const r=await postVote(s,'positive'); if(r && !r.error) updateVoteUI(s); });
+voteNegBtn.addEventListener('click', async ()=>{ const s=currentSessionId(); const r=await postVote(s,'negative'); if(r && !r.error) updateVoteUI(s); });
+resetRoundBtn.addEventListener('click', async ()=>{ const s=currentSessionId(); const r=await resetRound(s); if(r) updateVoteUI(s); });
+
+function updateVoteSession(){ const s=currentSessionId(); voteSessionLabel.textContent=s; }
+
+// Start/stop polling based on active tab view
+document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', ()=>{
+  const active = document.querySelector('.tab.active').dataset.tab;
+  if(active==='livevote'){ startVotePoll(); // show reset only for presenters
+    resetRoundBtn.style.display = presenterToggle.checked ? 'inline-block' : 'none';
+    voteQuestion.disabled = !presenterToggle.checked;
+  } else { stopVotePoll(); }
+}));
+
+// also respond to presenter toggle changes
+presenterToggle.addEventListener('change', ()=>{
+  const showingLive = document.querySelector('.tab.active')?.dataset?.tab === 'livevote';
+  resetRoundBtn.style.display = (presenterToggle.checked && showingLive) ? 'inline-block' : 'none';
+  voteQuestion.disabled = !presenterToggle.checked;
+});
+
+// initialize vote UI
+updateVoteSession();
 
 renderLeaderboard();
 renderCompare();
