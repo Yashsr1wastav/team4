@@ -715,10 +715,10 @@ async function updateVoteUI(session){
     voteFillPos.style.background = getComputedStyle(document.documentElement).getPropertyValue('--gold'); voteFillPos.style.color = '#1A1200'; voteFillNeg.style.background = 'transparent';
   }
 
-  // client-side voted tracking: mark as voted if localStorage has voted:<session>
+  // client-side voted tracking: only use localStorage per device/session
   const votedKey = `voted:${session}`;
-  const voted = !!localStorage.getItem(votedKey);
-  if (voted) {
+  const hasVoted = localStorage.getItem(votedKey) === 'true';
+  if (hasVoted) {
     voteStatus.textContent = 'You voted ✓'; votePosBtn.disabled = true; voteNegBtn.disabled = true;
   } else {
     voteStatus.textContent = 'Not voted'; votePosBtn.disabled = false; voteNegBtn.disabled = false;
@@ -736,7 +736,7 @@ votePosBtn.addEventListener('click', async ()=>{
   const s=currentSessionId(); const errEl = document.getElementById('voteError'); if(errEl) errEl.style.display='none';
   const r = await postVote(s,'positive');
   if (r && !r.error) {
-    localStorage.setItem(`voted:${s}`, '1');
+    localStorage.setItem(`voted:${s}`, 'true');
     updateVoteUI(s);
   } else {
     if(errEl){ errEl.textContent = r && r.error ? `Vote failed: ${r.error}` : 'Vote failed, try again'; errEl.style.display = 'block'; }
@@ -747,7 +747,7 @@ voteNegBtn.addEventListener('click', async ()=>{
   const s=currentSessionId(); const errEl = document.getElementById('voteError'); if(errEl) errEl.style.display='none';
   const r = await postVote(s,'negative');
   if (r && !r.error) {
-    localStorage.setItem(`voted:${s}`, '1');
+    localStorage.setItem(`voted:${s}`, 'true');
     updateVoteUI(s);
   } else {
     if(errEl){ errEl.textContent = r && r.error ? `Vote failed: ${r.error}` : 'Vote failed, try again'; errEl.style.display = 'block'; }
