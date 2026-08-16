@@ -740,12 +740,15 @@ resetRoundBtn.addEventListener('click', async ()=>{ const s=currentSessionId(); 
 function updateVoteSession(){ const s=currentSessionId(); voteSessionLabel.textContent=s; }
 
 // Start/stop polling based on active tab view
-document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', ()=>{
-  const active = document.querySelector('.tab.active').dataset.tab;
-  if(active==='livevote'){ startVotePoll(); // show reset only for presenters
+document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', (e)=>{
+  const clicked = btn.dataset.tab; // use clicked tab directly to avoid timing/order issues
+  if(clicked === 'livevote'){
+    startVotePoll();
     resetRoundBtn.style.display = presenterToggle.checked ? 'inline-block' : 'none';
     voteQuestion.disabled = !presenterToggle.checked;
-  } else { stopVotePoll(); }
+  } else {
+    stopVotePoll();
+  }
 }));
 
 // also respond to presenter toggle changes
