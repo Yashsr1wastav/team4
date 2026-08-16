@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The IPO Time Machine — 2021 NSE Cohort</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Cambria&family=Archivo+Expanded:wght@600;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
@@ -235,6 +236,23 @@
   .vote-fill.neg{background:var(--red);color:#2B0A0A}
   .vote-fill.pos{background:var(--green);color:#06231A}
   .vote-meta{font-family:'JetBrains Mono',monospace;color:var(--muted);font-size:13px;margin-top:8px}
+
+  /* floating retake button (presenter-only) */
+  .revote-button{
+    position:fixed;right:18px;bottom:18px;padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--ice);z-index:60;cursor:pointer;font-family:'Archivo Expanded',sans-serif;font-weight:800}
+
+  /* Responsive tweaks */
+  @media(max-width:640px){
+    body{padding:20px 12px 60px}
+    .wrap{max-width:100%;}
+    .controls{grid-template-columns:1fr}
+    .vote-row{flex-direction:column}
+    .vote-btn{width:100%}
+    .vote-bar{height:48px}
+    .panel{padding:18px}
+    .ticker{font-size:clamp(28px,9vw,44px)}
+    .revote-button{right:12px;bottom:12px;padding:8px 10px;font-size:13px}
+  }
 </style>
 </head>
 <body>
@@ -343,11 +361,11 @@
     <div class="compare-grid" id="compareGrid"></div>
   </div>
 
-  <div class="panel footnote">
-    <span class="star">★</span> <b>For your team:</b> figures below are compiled from press coverage (Business Standard, Upstox, Tickertape, Angel One) at the time this deck was built — current prices drift daily. Swap in your data pod's verified numbers before presenting. Edit the <code>stocks</code> array near the top of the script block.
-  </div>
+  <div class="panel footnote"></div>
 
 </div>
+
+<button id="revoteBtn" class="revote-button" style="display:none">Retake Voting</button>
 
 <script>
 const stocks = [
@@ -631,6 +649,7 @@ const voteSessionLabel = document.getElementById('voteSession');
 const voteStatus = document.getElementById('voteStatus');
 const resetRoundBtn = document.getElementById('resetRound');
 const voteQuestion = document.getElementById('voteQuestion');
+const revoteBtn = document.getElementById('revoteBtn');
 
 let votePollId = null;
 
@@ -736,6 +755,8 @@ voteNegBtn.addEventListener('click', async ()=>{
 });
 
 resetRoundBtn.addEventListener('click', async ()=>{ const s=currentSessionId(); const r=await resetRound(s); if(r){ localStorage.removeItem(`voted:${s}`); updateVoteUI(s); } });
+// Retake voting (floating button) — presenter-only shortcut
+if (revoteBtn) revoteBtn.addEventListener('click', async ()=>{ const s=currentSessionId(); const r = await resetRound(s); if(r){ localStorage.removeItem(`voted:${s}`); updateVoteUI(s); } });
 
 function updateVoteSession(){ const s=currentSessionId(); voteSessionLabel.textContent=s; }
 
@@ -745,6 +766,7 @@ document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', (
   if(clicked === 'livevote'){
     startVotePoll();
     resetRoundBtn.style.display = presenterToggle.checked ? 'inline-block' : 'none';
+    if (revoteBtn) revoteBtn.style.display = presenterToggle.checked ? 'inline-block' : 'none';
     voteQuestion.disabled = !presenterToggle.checked;
   } else {
     stopVotePoll();
@@ -756,6 +778,7 @@ presenterToggle.addEventListener('change', ()=>{
   const showingLive = document.querySelector('.tab.active')?.dataset?.tab === 'livevote';
   resetRoundBtn.style.display = (presenterToggle.checked && showingLive) ? 'inline-block' : 'none';
   voteQuestion.disabled = !presenterToggle.checked;
+  if (revoteBtn) revoteBtn.style.display = (presenterToggle.checked && showingLive) ? 'inline-block' : 'none';
 });
 
 // initialize vote UI
